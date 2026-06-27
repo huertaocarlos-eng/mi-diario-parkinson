@@ -14,3 +14,8 @@ node_modules/
 
 # Respaldos del usuario (datos clínicos sensibles)
 diario-parkinson-*.json
+
+# Servidor: claves push y suscripciones (NUNCA subir)
+server/node_modules/
+server/vapid.json
+server/data.json
