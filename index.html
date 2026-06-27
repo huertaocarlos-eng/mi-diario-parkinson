@@ -69,8 +69,8 @@
     <div class="insight" id="insight"></div>
     <div id="grafico"></div>
     <div class="acciones">
-      <button onclick="copiarReporte()">📋 Copiar para neurólogo</button>
-      <button class="sec" onclick="window.print()">🖨️ Imprimir / PDF</button>
+      <button onclick="reportePDF()">📄 Descargar PDF para médico</button>
+      <button class="sec" onclick="copiarReporte()">📋 Copiar texto</button>
     </div>
     <h2 class="sec">Registros</h2>
     <div id="timelineSemana"></div>
@@ -127,6 +127,8 @@
     </div>
   </section>
 </main>
+
+<div id="printRoot"></div>
 
 <nav id="navWrap">
   <button id="nav-hoy" class="activo" onclick="cambiarVista('hoy')"><span class="ni">📝</span>Hoy</button>

@@ -150,9 +150,26 @@ nav button.activo{ color:var(--green); font-weight:700 }
 .aviso{ font-size:12px; color:var(--sub); text-align:center; margin-top:16px; line-height:1.5 }
 .aviso a{ color:var(--green) }
 
-/* Impresion del reporte */
+/* Documento imprimible (oculto en pantalla, visible al imprimir/guardar PDF) */
+#printRoot{ display:none }
+.pr-head{ display:flex; align-items:center; gap:12px; border-bottom:3px solid #1f7a6d; padding-bottom:12px; margin-bottom:16px }
+.pr-head .pr-logo{ font-size:34px }
+.pr-title{ font-size:22px; font-weight:800; color:#155d53 }
+.pr-meta{ font-size:13px; color:#444 }
+.pr-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin:14px 0 }
+.pr-stat{ border:1px solid #cfe0db; border-radius:8px; padding:10px; text-align:center }
+.pr-stat .n{ font-size:24px; font-weight:800; color:#1f7a6d }
+.pr-stat .l{ font-size:11px; color:#555 }
+.pr-insight{ border:1px solid #e6c39e; background:#fff7ef; border-radius:8px; padding:10px; font-size:13px; margin-bottom:14px }
+.pr-h{ font-size:13px; text-transform:uppercase; letter-spacing:.5px; color:#155d53; font-weight:700; margin:14px 0 8px }
+table.pr-tab{ width:100%; border-collapse:collapse; font-size:12px }
+table.pr-tab th, table.pr-tab td{ text-align:left; padding:6px 8px; border-bottom:1px solid #e3ece9 }
+table.pr-tab th{ background:#eef5f3; color:#155d53 }
+.pr-foot{ margin-top:18px; font-size:11px; color:#777; border-top:1px solid #ddd; padding-top:8px }
+
 @media print{
-  header, nav, .mic-wrap, .grid, .periodo, .acciones, #navWrap, .no-print{ display:none !important }
-  body{ padding:0; background:#fff }
-  .card,.stat,.item,.grafico{ box-shadow:none; border:1px solid #ccc }
+  @page{ margin:14mm }
+  body{ padding:0 !important; background:#fff; color:#000; font-size:12px }
+  header, main, nav, .banner, #navWrap{ display:none !important }
+  #printRoot{ display:block !important }
 }

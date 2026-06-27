@@ -244,6 +244,38 @@ function copiarReporte(){
     .then(()=>aviso('Reporte copiado. Pégalo en WhatsApp o correo para tu neurólogo.','exito'))
     .catch(()=>{ prompt('Copia tu reporte:', txt); });
 }
+/* Documento PDF para el medico (se imprime / guarda como PDF en 1 clic) */
+function reportePDF(){
+  const d=datosPeriodo();
+  const tomas=d.filter(r=>r.tipo==='medicamento').length;
+  const offs=d.filter(r=>r.tipo==='off').length;
+  const sintomas=d.filter(r=>r.tipo==='sintoma').length;
+  const dias=new Set(d.map(r=>claveDia(r.ts))).size||1;
+  const filas=d.slice().reverse().map(r=>
+    `<tr><td>${fmtFecha(r.ts)}</td><td>${fmtHora(r.ts)}</td><td>${esc(r.detalle)}</td></tr>`).join('');
+  const hoy=new Date().toLocaleDateString('es-CL',{day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('printRoot').innerHTML=`
+    <div class="pr-head">
+      <div class="pr-logo">🌷</div>
+      <div><div class="pr-title">Reporte — Mi Diario Parkinson</div>
+        <div class="pr-meta">${cfg.paciente?('Paciente: '+esc(cfg.paciente)+' · '):''}Últimos ${periodoRep} días · Generado el ${hoy}</div></div>
+    </div>
+    <div class="pr-stats">
+      <div class="pr-stat"><div class="n">${tomas}</div><div class="l">Tomas</div></div>
+      <div class="pr-stat"><div class="n">${(tomas/dias).toFixed(1)}</div><div class="l">Tomas/día</div></div>
+      <div class="pr-stat"><div class="n">${offs}</div><div class="l">Episodios OFF</div></div>
+      <div class="pr-stat"><div class="n">${dias}</div><div class="l">Días con registro</div></div>
+    </div>
+    <div class="pr-insight">${calcularWearingOff(d)}${sintomas?(' Síntomas anotados: '+sintomas+'.'):''}</div>
+    <div class="pr-h">Tomas por día</div>
+    ${graficoSVG(d)}
+    <div class="pr-h">Registro detallado</div>
+    <table class="pr-tab"><thead><tr><th>Fecha</th><th>Hora</th><th>Evento</th></tr></thead>
+      <tbody>${filas||'<tr><td colspan="3">Sin registros en el período.</td></tr>'}</tbody></table>
+    <div class="pr-foot">Generado con Mi Diario Parkinson — herramienta de registro y apoyo. No reemplaza el criterio médico.</div>`;
+  hablar('Generando tu reporte');
+  setTimeout(()=>window.print(), 150);
+}
 
 /* ===========================================================================
    LISTA generica
