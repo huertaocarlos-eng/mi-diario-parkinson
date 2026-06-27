@@ -1,0 +1,12 @@
+{
+  "name": "diario-push",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Backend de notificaciones push + hosting de Mi Diario Parkinson",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": {
+    "express": "^4.19.2",
+    "web-push": "^3.6.7"
+  }
+}

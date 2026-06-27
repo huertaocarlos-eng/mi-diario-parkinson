@@ -1,7 +1,7 @@
 /* Service worker — Mi Diario Parkinson
    Estrategia: "red primero" para la app (HTML/JS/CSS) para que las mejoras lleguen
    siempre; "caché primero" para iconos. Funciona offline con la última versión vista. */
-const CACHE = 'diario-pk-v3';
+const CACHE = 'diario-pk-v4';
 const ASSETS = [
   './', './index.html', './css/styles.css', './js/app.js',
   './manifest.webmanifest',
@@ -54,4 +54,27 @@ self.addEventListener('fetch', (e) => {
       return res;
     }).catch(() => hit)));
   }
+});
+
+/* ---- Notificaciones push (llegan aunque la app esté cerrada) ---- */
+self.addEventListener('push', (e) => {
+  let d = { title: 'Mi Diario Parkinson', body: '' };
+  try { if (e.data) d = Object.assign(d, e.data.json()); }
+  catch (_) { if (e.data) d.body = e.data.text(); }
+  e.waitUntil(self.registration.showNotification(d.title, {
+    body: d.body,
+    icon: './icons/icon-192.png',
+    badge: './icons/icon-192.png',
+    vibrate: [200, 100, 200, 100, 200],
+    tag: d.tag || 'diario-pk',
+    renotify: true,
+    requireInteraction: true
+  }));
+});
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  e.waitUntil(clients.matchAll({ type: 'window', includeUncontrolled: true }).then((ws) => {
+    for (const w of ws) { if ('focus' in w) return w.focus(); }
+    if (clients.openWindow) return clients.openWindow('./');
+  }));
 });

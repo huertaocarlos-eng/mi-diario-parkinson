@@ -100,13 +100,32 @@
     </div>
 
     <div class="card">
-      <h3>Medicamentos y horarios</h3>
-      <div id="medsEditor"></div>
-      <datalist id="presetMeds"></datalist>
-      <button class="btn-grande sec" onclick="agregarMed()">＋ Agregar medicamento</button>
-      <p class="aviso">Horarios separados por coma. Ej: 07:00, 10:00, 13:00, 16:00, 19:00<br>
-        ⏰ Los recordatorios solo suenan con la app abierta.</p>
+      <h3>Mis medicamentos</h3>
+      <div id="catalogoEditor"></div>
+      <div class="med-row">
+        <select id="selMed" aria-label="Elegir medicamento"></select>
+        <input type="text" id="dosisNueva" class="med-dosis" placeholder="dosis" aria-label="Dosis del nuevo medicamento">
+      </div>
+      <button class="btn-grande sec" onclick="agregarMedCatalogo()">＋ Agregar medicamento</button>
       <p class="aviso nota-seg">⚠️ Nunca suspendas ni cambies dosis sin tu neurólogo; saltarte la Levodopa puede ser peligroso. Los agonistas (ej. Pramipexol/Biopsol) pueden causar problemas de control de impulsos. Rasagilina junto a antidepresivos: consúltalo con tu médico.</p>
+    </div>
+
+    <div class="card">
+      <h3>Mi ciclo del día</h3>
+      <div class="campo"><label for="inpIntervalo">Cada cuántas horas entre tomas</label>
+        <input type="number" id="inpIntervalo" min="0.5" max="12" step="0.5" inputmode="decimal" onchange="setIntervalo(this.value)"></div>
+      <div id="cicloEditor"></div>
+      <button class="btn-grande sec" onclick="agregarTomaCiclo()">＋ Agregar toma</button>
+      <div class="campo" style="margin-top:12px"><label for="inpDormir">Dormir: horas después de la última toma</label>
+        <input type="number" id="inpDormir" min="0" max="6" step="0.5" inputmode="decimal" onchange="setDormirHoras(this.value)"></div>
+      <p class="aviso">El ciclo empieza cuando tocas “☀️ Ya desperté”. La app no puede saber sola cuándo despiertas: tócalo al levantarte.</p>
+    </div>
+
+    <div class="card">
+      <h3>Ejercicios</h3>
+      <div class="campo"><label>Días de ejercicio</label><div id="ejercicioDias" class="dias-semana"></div></div>
+      <div class="campo"><label for="inpEjeHoras">Horas después de despertar</label>
+        <input type="number" id="inpEjeHoras" min="0" max="6" step="0.5" inputmode="decimal" onchange="setEjercicioHoras(this.value)"></div>
     </div>
 
     <div class="card">
@@ -119,7 +138,7 @@
         <label class="switch"><input type="checkbox" id="tgContraste" onchange="onToggle('tgContraste','altoContraste')"><span class="slider"></span></label></div>
       <div class="toggle"><span>⏰ Recordatorios de toma</span>
         <label class="switch"><input type="checkbox" id="tgRecord" onchange="onToggle('tgRecord','recordatorios')"><span class="slider"></span></label></div>
-      <p class="aviso">⏰ Los recordatorios solo suenan con la app abierta. Para no olvidar una toma, usa también la alarma del teléfono.</p>
+      <p class="aviso">⏰ Con el servidor de notificaciones activo, las alarmas suenan aunque la app esté cerrada. Sin él, solo suenan con la app abierta.</p>
     </div>
 
     <div class="card">

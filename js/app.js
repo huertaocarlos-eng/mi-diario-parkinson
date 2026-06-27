@@ -8,26 +8,36 @@ const K_REG = 'dp_registros_v1';
 const K_CFG = 'dp_config_v1';
 const K_EJE = 'dp_ejercicio_v1';
 const K_NOT = 'dp_notificados_v1';
+const K_DIA = 'dp_dia_v1';   // estado del dia: cuando desperto + que tomas marco
 
-const ICONOS = { medicamento:'💊', on:'🟢', off:'🟠', sintoma:'〰️', animo:'🌧️', sueno:'😴', ejercicio:'🤸', nota:'🗒️' };
+const ICONOS = { medicamento:'💊', on:'🟢', off:'🟠', sintoma:'〰️', animo:'🌧️', sueno:'😴', ejercicio:'🤸', despertar:'☀️', nota:'🗒️' };
 
-/* Esquema por defecto = regimen actual documentado (editable por el usuario).
-   NOTA clinica: Pramipexol (Biopsol) NO se precarga: figura suspendido (control de impulsos).
-   Queda disponible en PRESET_MEDS para agregar si el neurologo lo reindica. */
+/* Ciclo por defecto, RELATIVO al despertar (cada toma = lista de meds del catalogo).
+   Esquema de Carlos: 1) Prolopa+Rasagilina  2) Prolopa  3) Prolopa+Biopsol
+   4) Prolopa+Biopsol  5) Prolopa. Dormir 2h despues de la ultima. */
+const CICLO_DEFAULT = [
+  ['Prolopa','Rasagilina'], ['Prolopa'], ['Prolopa','Biopsol'], ['Prolopa','Biopsol'], ['Prolopa']
+];
 const CFG_DEFAULT = {
   paciente: '',
-  meds: [
-    { nombre:'Levodopa/Benserazida (Prolopa)', dosis:'200/50 mg', horarios:['07:00','10:00','13:00','16:00','19:00'] },
-    { nombre:'Rasagilina (Elbrus)',            dosis:'1 mg',       horarios:['08:00'] }
+  // catalogo de medicamentos que tomo (nombre corto + dosis)
+  catalogo: [
+    { nombre:'Prolopa',    dosis:'200/50 mg' },
+    { nombre:'Rasagilina', dosis:'1 mg' },
+    { nombre:'Biopsol',    dosis:'0,25 mg' }
   ],
+  intervaloMin: 180,                       // cada 3 horas entre tomas
+  ciclo: CICLO_DEFAULT.map(m => ({ meds: m.slice() })),
+  dormirHoras: 2,                          // dormir = ultima toma + 2h
+  ejercicioDias: [1, 3, 5, 0],             // L, X, V, D (0=dom..6=sab) = 4 dias
+  ejercicioOffsetMin: 120,                 // ejercicio = despertar + 2h
   vozLectura:true, textoGrande:false, altoContraste:false, recordatorios:true
 };
 
-/* Lista rapida de medicamentos de Parkinson (datalist en Ajustes). */
+/* Lista para el desplegable "Agregar medicamento". */
 const PRESET_MEDS = [
-  'Levodopa/Benserazida (Prolopa)', 'Levodopa/Carbidopa', 'Rasagilina (Elbrus)',
-  'Pramipexol (Biopsol) — agonista: vigilar control de impulsos', 'Selegilina',
-  'Entacapona', 'Amantadina', 'Rotigotina (parche)', 'Safinamida',
+  'Prolopa', 'Rasagilina', 'Biopsol', 'Levodopa/Carbidopa', 'Selegilina',
+  'Entacapona', 'Amantadina', 'Rotigotina', 'Safinamida',
   'Escitalopram', 'Clonazepam', 'Zolpidem'
 ];
 
@@ -37,13 +47,15 @@ const RUTINA = [
   'Ejercicio de voz: hablar fuerte'
 ];
 
+const DIAS_SEMANA = [ {l:'L',d:1},{l:'M',d:2},{l:'X',d:3},{l:'J',d:4},{l:'V',d:5},{l:'S',d:6},{l:'D',d:0} ];
+
 let registros = cargar(K_REG, []);
 let cfg = Object.assign({}, CFG_DEFAULT, cargar(K_CFG, {}));
 let vistaActual = 'hoy';
 let periodoRep = 7;
 let notificados = new Set(cargar(K_NOT, []));
 let promptInstalar = null;
-let dosisPendiente = null;   // {nombre, dosis} para el boton de la tarjeta de toma
+let dosisPendiente = null;   // {idx, meds} para el boton de la tarjeta de toma
 let ultimoBorrado = null;    // para "deshacer"
 
 /* ---------- almacenamiento ---------- */
@@ -65,6 +77,24 @@ function claveDia(ts){ return new Date(ts).toDateString(); }
 function horarioADate(hhmm, base){ const [h,m]=hhmm.split(':').map(Number); const d=base?new Date(base):new Date(); d.setHours(h,m,0,0); return d; }
 function inicioPeriodo(){ const d=new Date(); d.setHours(0,0,0,0); d.setDate(d.getDate()-(periodoRep-1)); return d.getTime(); }
 
+/* ---------- estado del dia (ciclo relativo al despertar) ---------- */
+function hoyKey(){ return new Date().toDateString(); }
+function getDia(){ const d=cargar(K_DIA,{}); if(d.fecha!==hoyKey()) return {fecha:hoyKey(), despertarTs:null, tomadas:[]}; return d; }
+function setDia(d){ d.fecha=hoyKey(); guardarSeguro(K_DIA,d); }
+function despertar(){
+  const d={ fecha:hoyKey(), despertarTs:Date.now(), tomadas:(cfg.ciclo||[]).map(()=>false) };
+  setDia(d); notificados=new Set(); guardarSeguro(K_NOT,[]);
+  registrar('despertar','Comencé mi día','☀️');   // registrar() ya hace render()
+  aviso('¡Buen día! Programé tus tomas, ejercicio y la hora de dormir.','exito');
+  pushInit(true).then(enviarAgenda);
+}
+function tomaTs(i){ const d=getDia(); return d.despertarTs!=null ? d.despertarTs + i*cfg.intervaloMin*60000 : null; }
+function dormirTs(){ const d=getDia(); return d.despertarTs!=null ? d.despertarTs + Math.max(0,(cfg.ciclo.length-1))*cfg.intervaloMin*60000 + cfg.dormirHoras*HORA : null; }
+function ejercicioTs(){ const d=getDia(); return d.despertarTs!=null ? d.despertarTs + cfg.ejercicioOffsetMin*60000 : null; }
+function dosisLabel(nombre){ const c=(cfg.catalogo||[]).find(x=>x.nombre===nombre); return c?(c.nombre+(c.dosis?(' '+c.dosis):'')):nombre; }
+function nombresMeds(lista){ return (lista||[]).map(dosisLabel).join(' + '); }
+function fmtDur(ms){ const m=Math.max(0,Math.round(ms/60000)), h=Math.floor(m/60); return (h>0?h+'h ':'')+(m%60)+'min'; }
+
 /* ---------- voz (lectura) ---------- */
 function hablar(txt){
   if(!cfg.vozLectura || !('speechSynthesis' in window)) return;
@@ -83,9 +113,12 @@ function registrar(tipo, detalle, ico){
   guardarReg(); flash('✓ '+detalle); hablar('Anotado: '+detalle); render();
 }
 function registrarToma(){
-  const n = dosisPendiente ? dosisPendiente.nombre : 'medicamento';
-  const ds = dosisPendiente && dosisPendiente.dosis ? ' '+dosisPendiente.dosis : '';
-  registrar('medicamento', 'Tomé '+n+ds, '💊');
+  if(dosisPendiente && typeof dosisPendiente.idx==='number'){
+    const d=getDia(); if(d.despertarTs!=null){ d.tomadas[dosisPendiente.idx]=true; setDia(d); }
+    registrar('medicamento', 'Tomé '+nombresMeds(dosisPendiente.meds), '💊');
+  } else {
+    registrar('medicamento', 'Tomé medicamento', '💊');
+  }
 }
 function borrar(id){
   const idx = registros.findIndex(r=>r.id===id);
@@ -111,50 +144,33 @@ function flash(msg){
    =========================================================================== */
 function renderDosis(){
   const cont=document.getElementById('cardDosis');
-  const lista=(cfg.meds||[]).flatMap(m=>(m.horarios||[]).map(h=>({ h, nombre:m.nombre, dosis:m.dosis||'' })));
-  if(lista.length===0){ cont.classList.add('oculto'); return; }
   cont.classList.remove('oculto');
-
-  const ahora=new Date();
-  const conFecha=lista.map(o=>({...o, d:horarioADate(o.h, ahora)})).sort((a,b)=>a.d-b.d);
-  const tomados=horariosTomadosHoy(conFecha);
-
-  let atrasada=null, prox=null;
-  conFecha.forEach(o=>{
-    const key=o.nombre+'|'+o.h;
-    if(o.d<=ahora){ if(!tomados.has(key) && (ahora-o.d)<=3*HORA && !atrasada) atrasada=o; }
-    else if(!prox){ prox=o; }
-  });
-  if(!prox){ const m=conFecha[0]; prox={...m, d:horarioADate(m.h, new Date(Date.now()+DIA))}; }
-
-  const obj = atrasada || prox;
-  dosisPendiente = { nombre:obj.nombre, dosis:obj.dosis };
-
-  if(atrasada){
-    cont.classList.add('atrasada');
-    cont.innerHTML=`<h3>⚠ Toma pendiente</h3>
-      <div class="dosis"><div class="reloj">${atrasada.h}</div>
-      <div class="det">${esc(atrasada.nombre)}${atrasada.dosis?(' · '+esc(atrasada.dosis)):''} — toca cuando la tomes</div>
-      <button class="btn-grande" onclick="registrarToma()">💊 Registrar toma</button></div>`;
-  }else{
-    cont.classList.remove('atrasada');
-    const falta=prox.d-ahora, hh=Math.floor(falta/HORA), mm=Math.floor((falta%HORA)/60000);
-    cont.innerHTML=`<h3>Próxima toma</h3>
-      <div class="dosis"><div class="reloj">${prox.h}</div>
-      <div class="det">${esc(prox.nombre)}${prox.dosis?(' · '+esc(prox.dosis)):''} — en ${hh>0?hh+'h ':''}${mm}min</div>
-      <button class="btn-grande sec" onclick="registrarToma()">💊 Ya la tomé</button></div>`;
+  const d=getDia();
+  if(d.despertarTs==null){
+    cont.classList.remove('atrasada'); dosisPendiente=null;
+    cont.innerHTML=`<h3>☀️ Buenos días</h3>
+      <div class="dosis"><div class="det">Al levantarte, toca para empezar tu día y programar tus tomas, ejercicio y la hora de dormir.</div>
+      <button class="btn-grande" onclick="despertar()">☀️ Ya desperté — empezar</button></div>`;
+    return;
   }
-}
-/* Asocia cada toma de hoy al horario teorico mas cercano (<=3h). Devuelve Set de "nombre|hh:mm". */
-function horariosTomadosHoy(conFecha){
-  const tomas=registros.filter(r=>r.tipo==='medicamento'&&esHoy(r.ts)).map(r=>r.ts);
-  const set=new Set();
-  tomas.forEach(t=>{
-    let best=null, bd=Infinity;
-    conFecha.forEach(o=>{ const diff=Math.abs(t-o.d.getTime()); if(diff<bd){ bd=diff; best=o; } });
-    if(best && bd<=3*HORA) set.add(best.nombre+'|'+best.h);
-  });
-  return set;
+  const ciclo=cfg.ciclo||[];
+  let idx=-1;
+  for(let i=0;i<ciclo.length;i++){ if(!d.tomadas[i]){ idx=i; break; } }
+  if(idx<0){
+    cont.classList.remove('atrasada'); dosisPendiente=null;
+    const dms=(dormirTs()||Date.now())-Date.now();
+    cont.innerHTML=`<h3>Tomas completas ✅</h3>
+      <div class="dosis"><div class="det">${dms>0?('🌙 Hora de dormir en '+fmtDur(dms)):'🌙 Es hora de dormir'}</div></div>`;
+    return;
+  }
+  const t=tomaTs(idx), meds=ciclo[idx].meds, ahora=Date.now();
+  dosisPendiente={ idx, meds };
+  const atrasada = t<=ahora;
+  cont.classList.toggle('atrasada', atrasada);
+  cont.innerHTML=`<h3>${atrasada?'⚠ Toma pendiente':'Próxima toma'} · ${idx+1} de ${ciclo.length}</h3>
+    <div class="dosis"><div class="reloj">${fmtHora(t)}</div>
+    <div class="det">${esc(nombresMeds(meds))} — ${atrasada?'toca cuando la tomes':('en '+fmtDur(t-ahora))}</div>
+    <button class="btn-grande${atrasada?'':' sec'}" onclick="registrarToma()">💊 Ya la tomé</button></div>`;
 }
 
 function renderFranja(){
@@ -195,7 +211,7 @@ function renderTimelineHoy(){ pintarLista(document.getElementById('timelineHoy')
    VISTA REPORTE
    =========================================================================== */
 function datosPeriodo(){ const desde=inicioPeriodo(); return registros.filter(r=>r.ts>=desde).sort((a,b)=>a.ts-b.ts); }
-function dosisPautadasPorDia(){ return (cfg.meds||[]).reduce((s,m)=>s+((m.horarios||[]).length),0); }
+function dosisPautadasPorDia(){ return (cfg.ciclo||[]).length; }
 
 function renderReporte(){
   const d=datosPeriodo();
@@ -322,34 +338,84 @@ function esc(s){ return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;
    =========================================================================== */
 function renderAjustes(){
   document.getElementById('inpPaciente').value=cfg.paciente||'';
-  document.getElementById('medsEditor').innerHTML=(cfg.meds||[]).map((m,i)=>`
-    <div class="med-card">
-      <div class="med-row">
-        <input type="text" list="presetMeds" value="${esc(m.nombre)}" placeholder="Medicamento"
-               aria-label="Nombre del medicamento" onchange="editMed(${i},'nombre',this.value)">
-        <input type="text" class="med-dosis" value="${esc(m.dosis||'')}" placeholder="mg"
-               aria-label="Dosis" onchange="editMed(${i},'dosis',this.value)">
-      </div>
-      <div class="med-row">
-        <input type="text" value="${esc((m.horarios||[]).join(', '))}" placeholder="07:00, 10:00, 13:00"
-               inputmode="numeric" aria-label="Horarios" onchange="editMed(${i},'horarios',this.value)">
-        <button class="borrar" onclick="quitarMed(${i})" aria-label="Quitar ${esc(m.nombre||'medicamento')}">×</button>
-      </div>
-    </div>`).join('');
+  renderSelMed(); renderCatalogo(); renderCiclo(); renderEjercicioDias();
+  const iv=document.getElementById('inpIntervalo'); if(iv) iv.value=(cfg.intervaloMin/60);
+  const dm=document.getElementById('inpDormir');    if(dm) dm.value=cfg.dormirHoras;
+  const eh=document.getElementById('inpEjeHoras');   if(eh) eh.value=(cfg.ejercicioOffsetMin/60);
   bindToggle('tgVoz','vozLectura'); bindToggle('tgTexto','textoGrande');
   bindToggle('tgContraste','altoContraste'); bindToggle('tgRecord','recordatorios');
+}
+function renderSelMed(){ const s=document.getElementById('selMed'); if(s) s.innerHTML=PRESET_MEDS.map(m=>`<option value="${esc(m)}">${esc(m)}</option>`).join(''); }
+function renderCatalogo(){
+  const c=document.getElementById('catalogoEditor'); if(!c) return;
+  c.innerHTML=(cfg.catalogo||[]).map((m,i)=>`
+    <div class="med-row">
+      <input type="text" value="${esc(m.nombre)}" aria-label="Nombre del medicamento" onchange="editCatalogo(${i},'nombre',this.value)">
+      <input type="text" class="med-dosis" value="${esc(m.dosis||'')}" placeholder="dosis" aria-label="Dosis" onchange="editCatalogo(${i},'dosis',this.value)">
+      <button class="borrar" onclick="quitarCatalogo(${i})" aria-label="Quitar ${esc(m.nombre)}">×</button>
+    </div>`).join('') || '<p class="aviso">Aún no agregas medicamentos.</p>';
+}
+function renderCiclo(){
+  const c=document.getElementById('cicloEditor'); if(!c) return;
+  const cat=cfg.catalogo||[];
+  c.innerHTML=(cfg.ciclo||[]).map((toma,i)=>`
+    <div class="med-card">
+      <div class="ciclo-head"><b>Toma ${i+1}</b>
+        <button class="borrar" onclick="quitarTomaCiclo(${i})" aria-label="Quitar toma ${i+1}">×</button></div>
+      <div class="ciclo-meds">${cat.map((m,j)=>`
+        <label class="chip ${toma.meds.includes(m.nombre)?'on':''}">
+          <input type="checkbox" ${toma.meds.includes(m.nombre)?'checked':''} onchange="toggleCicloMed(${i},${j})"> ${esc(m.nombre)}</label>`).join('')||'<span class="aviso">Agrega medicamentos al catálogo primero.</span>'}</div>
+    </div>`).join('');
+}
+function renderEjercicioDias(){
+  const c=document.getElementById('ejercicioDias'); if(!c) return;
+  c.innerHTML=DIAS_SEMANA.map(x=>`<button type="button" class="dia ${(cfg.ejercicioDias||[]).includes(x.d)?'on':''}" aria-pressed="${(cfg.ejercicioDias||[]).includes(x.d)}" onclick="toggleEjercicioDia(${x.d})">${x.l}</button>`).join('');
 }
 function bindToggle(id,key){ const el=document.getElementById(id); if(el) el.checked=!!cfg[key]; }
 function onToggle(id,key){ cfg[key]=document.getElementById(id).checked; guardarCfg(); aplicarConfig();
   if(key==='recordatorios'&&cfg[key]){ pedirPermisoNotif();
     aviso('Te avisaré solo con la app abierta. Para no olvidar, déjala abierta o usa también la alarma del teléfono.','exito'); } }
-function editMed(i,campo,val){
-  if(campo==='horarios') cfg.meds[i].horarios=val.split(',').map(s=>s.trim()).filter(s=>{ const m=s.match(/^(\d{1,2}):(\d{2})$/); return m && +m[1]<=23 && +m[2]<=59; });
-  else cfg.meds[i][campo]=val;
-  guardarCfg(); renderDosis();
+/* --- catalogo de medicamentos --- */
+function editCatalogo(i,campo,val){ cfg.catalogo[i][campo]=val.trim(); guardarCfg(); renderCiclo(); renderDosis(); }
+function quitarCatalogo(i){
+  const n=cfg.catalogo[i].nombre; cfg.catalogo.splice(i,1);
+  (cfg.ciclo||[]).forEach(t=>{ t.meds=t.meds.filter(x=>x!==n); });
+  guardarCfg(); renderAjustes(); renderDosis();
 }
-function quitarMed(i){ cfg.meds.splice(i,1); guardarCfg(); renderAjustes(); renderDosis(); }
-function agregarMed(){ cfg.meds.push({nombre:'',dosis:'',horarios:[]}); guardarCfg(); renderAjustes(); }
+function agregarMedCatalogo(){
+  const s=document.getElementById('selMed'), dn=document.getElementById('dosisNueva');
+  const nombre=((s&&s.value)||'').trim(); if(!nombre) return;
+  cfg.catalogo=cfg.catalogo||[];
+  if(!cfg.catalogo.some(m=>m.nombre===nombre)) cfg.catalogo.push({ nombre, dosis:((dn&&dn.value)||'').trim() });
+  else aviso('Ese medicamento ya está en tu lista.');
+  if(dn) dn.value=''; guardarCfg(); renderAjustes(); renderDosis();
+}
+/* --- ciclo del dia --- */
+function setIntervalo(h){ const v=parseFloat(h); if(v>0){ cfg.intervaloMin=Math.round(v*60); guardarCfg(); renderDosis(); } }
+function setDormirHoras(h){ const v=parseFloat(h); if(v>=0){ cfg.dormirHoras=v; guardarCfg(); renderDosis(); } }
+function toggleCicloMed(i,j){
+  const n=cfg.catalogo[j].nombre, arr=cfg.ciclo[i].meds, k=arr.indexOf(n);
+  if(k>=0) arr.splice(k,1); else arr.push(n);
+  guardarCfg(); renderCiclo(); renderDosis();
+}
+function agregarTomaCiclo(){
+  cfg.ciclo=cfg.ciclo||[]; cfg.ciclo.push({ meds:[] });
+  const d=getDia(); if(d.despertarTs!=null){ d.tomadas.push(false); setDia(d); }
+  guardarCfg(); renderCiclo(); renderDosis();
+}
+function quitarTomaCiclo(i){
+  cfg.ciclo.splice(i,1);
+  const d=getDia(); if(d.despertarTs!=null){ d.tomadas.splice(i,1); setDia(d); }
+  guardarCfg(); renderCiclo(); renderDosis();
+}
+/* --- ejercicio --- */
+function toggleEjercicioDia(dow){
+  cfg.ejercicioDias=cfg.ejercicioDias||[];
+  const k=cfg.ejercicioDias.indexOf(dow);
+  if(k>=0) cfg.ejercicioDias.splice(k,1); else cfg.ejercicioDias.push(dow);
+  guardarCfg(); renderEjercicioDias();
+}
+function setEjercicioHoras(h){ const v=parseFloat(h); if(v>=0){ cfg.ejercicioOffsetMin=Math.round(v*60); guardarCfg(); } }
 function guardarPaciente(v){ cfg.paciente=v; guardarCfg(); }
 function aplicarConfig(){
   document.body.classList.toggle('texto-grande', !!cfg.textoGrande);
@@ -402,17 +468,19 @@ function avisoDeshacer(msg){
 function pedirPermisoNotif(){ if('Notification' in window && Notification.permission==='default') Notification.requestPermission(); }
 function chequearRecordatorios(){
   if(!cfg.recordatorios) return;
-  const ahora=new Date(), minNow=ahora.getHours()*60+ahora.getMinutes();
-  (cfg.meds||[]).forEach(m=>(m.horarios||[]).forEach(h=>{
-    const [hh,mm]=h.split(':').map(Number), minDose=hh*60+mm;
-    const key=h+'|'+ahora.toDateString();
-    if(minNow>=minDose && minNow<minDose+2 && !notificados.has(key)){
+  const d=getDia(); if(d.despertarTs==null) return;
+  const ahora=Date.now();
+  const disparar=(t,key,msg)=>{
+    if(t!=null && ahora>=t && ahora<t+2*60000 && !notificados.has(key)){
       notificados.add(key); guardarSeguro(K_NOT,[...notificados]);
-      const msg=`Hora de tu ${m.nombre}`; aviso('⏰ '+msg,'exito'); hablar(msg);
+      aviso('⏰ '+msg,'exito'); hablar(msg);
       try{ if('Notification' in window && Notification.permission==='granted')
         new Notification('Mi Diario Parkinson',{ body:msg, icon:'icons/icon-192.png' }); }catch(e){}
     }
-  }));
+  };
+  (cfg.ciclo||[]).forEach((toma,i)=>{ if(!d.tomadas[i]) disparar(tomaTs(i),'toma'+i+'|'+d.fecha,'Hora de tu toma: '+nombresMeds(toma.meds)); });
+  if((cfg.ejercicioDias||[]).includes(new Date().getDay())) disparar(ejercicioTs(),'eje|'+d.fecha,'Hora de tus ejercicios 🤸');
+  disparar(dormirTs(),'dormir|'+d.fecha,'Es hora de ir a dormir 🌙');
 }
 
 /* ===========================================================================
@@ -502,18 +570,53 @@ window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); promptIn
 function instalarApp(){ if(!promptInstalar){ aviso('Para instalar: menú del navegador → "Agregar a pantalla de inicio".'); return; }
   promptInstalar.prompt(); promptInstalar=null; }
 
+/* ---------- notificaciones push (servidor) ---------- */
+const API_BASE = '';   // mismo origen: la app la sirve el backend
+let pushSub = null;
+function urlB64ToU8(base64){
+  const pad='='.repeat((4-base64.length%4)%4);
+  const b=(base64+pad).replace(/-/g,'+').replace(/_/g,'/');
+  const raw=atob(b), arr=new Uint8Array(raw.length);
+  for(let i=0;i<raw.length;i++) arr[i]=raw.charCodeAt(i);
+  return arr;
+}
+async function pushInit(pedirPermiso){
+  if(!('serviceWorker'in navigator)||!('PushManager'in window)||!('Notification'in window)) return;
+  if(Notification.permission!=='granted'){ if(!pedirPermiso) return; const p=await Notification.requestPermission(); if(p!=='granted') return; }
+  try{
+    const reg=await navigator.serviceWorker.ready;
+    pushSub=await reg.pushManager.getSubscription();
+    if(!pushSub){
+      const r=await fetch(API_BASE+'/api/vapidPublicKey'); if(!r.ok) return;
+      const {key}=await r.json();
+      pushSub=await reg.pushManager.subscribe({ userVisibleOnly:true, applicationServerKey:urlB64ToU8(key) });
+    }
+    await fetch(API_BASE+'/api/subscribe',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({subscription:pushSub}) });
+  }catch(e){ /* sin push: la app sigue con recordatorios en-app */ }
+}
+function construirAgenda(){
+  const d=getDia(); if(d.despertarTs==null) return [];
+  const ev=[];
+  (cfg.ciclo||[]).forEach((toma,i)=>ev.push({ ts:tomaTs(i), title:'💊 Hora de tu toma', body:nombresMeds(toma.meds) }));
+  if((cfg.ejercicioDias||[]).includes(new Date().getDay())) ev.push({ ts:ejercicioTs(), title:'🤸 Ejercicios', body:'Es la hora de tus ejercicios' });
+  ev.push({ ts:dormirTs(), title:'🌙 A dormir', body:'Es hora de ir a dormir' });
+  return ev.filter(e=>e.ts!=null);
+}
+async function enviarAgenda(){
+  if(!pushSub) return;   // la suscripcion se crea al tocar "Ya desperté"
+  try{ await fetch(API_BASE+'/api/schedule',{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ subscription:pushSub, events:construirAgenda() }) }); }catch(e){}
+}
+
 /* ---------- arranque ---------- */
 function init(){
   document.getElementById('micLabel').textContent=MIC_HINT;
-  // poblar datalist de medicamentos
-  const dl=document.getElementById('presetMeds');
-  if(dl) dl.innerHTML=PRESET_MEDS.map(m=>`<option value="${esc(m)}">`).join('');
   aplicarConfig(); initVoz(); render();
-  // pedir almacenamiento persistente (reduce riesgo de que el navegador borre los datos)
   if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   setInterval(()=>{ renderDosis(); chequearRecordatorios(); }, 30000);
-  // al volver a la app, revisar tomas/recordatorios (el teléfono pudo dormir)
-  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ renderDosis(); chequearRecordatorios(); } });
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(r=>{ if(r&&r.update) r.update(); }).catch(()=>{});
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ renderDosis(); chequearRecordatorios(); enviarAgenda(); } });
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.register('sw.js').then(r=>{ if(r&&r.update) r.update(); }).catch(()=>{});
+    pushInit(false).then(()=>{ if(pushSub) enviarAgenda(); });
+  }
 }
 document.addEventListener('DOMContentLoaded', init);
