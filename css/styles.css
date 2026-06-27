@@ -83,7 +83,7 @@ section{ animation:fade .22s ease } @keyframes fade{ from{opacity:0;transform:tr
 .mic-label{ margin-top:10px; font-size:15px; color:var(--sub); min-height:22px; padding:0 10px }
 
 /* Botones rapidos */
-.grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin:14px 0 }
+.grid{ display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; margin:14px 0 }
 .qbtn{ background:var(--card); border:1.5px solid var(--line); border-radius:14px; padding:14px 6px;
   font-size:14px; font-weight:600; color:var(--ink); cursor:pointer; display:flex; flex-direction:column;
   align-items:center; gap:6px; min-height:86px; justify-content:center; text-align:center; transition:.12s }
@@ -110,7 +110,7 @@ h2.sec{ font-size:13px; color:var(--sub); margin:20px 0 10px; text-transform:upp
 .vacio{ color:var(--sub); text-align:center; padding:22px; font-style:italic }
 
 /* Rutina ejercicio */
-.check{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line); cursor:pointer }
+.check{ display:flex; align-items:center; gap:12px; padding:11px 4px; min-height:48px; border-bottom:1px solid var(--line); cursor:pointer }
 .check:last-child{ border-bottom:none }
 .check .box{ width:26px; height:26px; border:1.8px solid var(--accent); border-radius:7px; flex-shrink:0;
   display:flex; align-items:center; justify-content:center; font-size:18px; color:#03211c }

@@ -11,3 +11,6 @@ desktop.ini
 # Datos locales / temporales
 *.log
 node_modules/
+
+# Respaldos del usuario (datos clínicos sensibles)
+diario-parkinson-*.json

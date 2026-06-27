@@ -1,12 +1,13 @@
 /* Service worker — Mi Diario Parkinson
    Estrategia: "red primero" para la app (HTML/JS/CSS) para que las mejoras lleguen
    siempre; "caché primero" para iconos. Funciona offline con la última versión vista. */
-const CACHE = 'diario-pk-v2';
+const CACHE = 'diario-pk-v3';
 const ASSETS = [
   './', './index.html', './css/styles.css', './js/app.js',
   './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png',
-  './icons/icon-maskable-512.png', './icons/apple-touch-icon.png'
+  './icons/icon-maskable-512.png', './icons/apple-touch-icon.png',
+  './icons/favicon-32.png'
 ];
 
 self.addEventListener('install', (e) => {

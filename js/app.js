@@ -301,7 +301,8 @@ function reportePDF(){
       <tbody>${filas||'<tr><td colspan="3">Sin registros en el período.</td></tr>'}</tbody></table>
     <div class="pr-foot">Generado con Mi Diario Parkinson — herramienta de registro y apoyo. No reemplaza el criterio médico.</div>`;
   hablar('Generando tu reporte');
-  setTimeout(()=>window.print(), 150);
+  setTimeout(()=>{ try{ window.print(); }
+    catch(e){ copiarReporte(); aviso('No pude abrir el PDF. Te copié el reporte para pegarlo en WhatsApp o correo.'); } }, 150);
 }
 
 /* ---------- lista generica ---------- */
@@ -340,9 +341,10 @@ function renderAjustes(){
 }
 function bindToggle(id,key){ const el=document.getElementById(id); if(el) el.checked=!!cfg[key]; }
 function onToggle(id,key){ cfg[key]=document.getElementById(id).checked; guardarCfg(); aplicarConfig();
-  if(key==='recordatorios'&&cfg[key]) pedirPermisoNotif(); }
+  if(key==='recordatorios'&&cfg[key]){ pedirPermisoNotif();
+    aviso('Te avisaré solo con la app abierta. Para no olvidar, déjala abierta o usa también la alarma del teléfono.','exito'); } }
 function editMed(i,campo,val){
-  if(campo==='horarios') cfg.meds[i].horarios=val.split(',').map(s=>s.trim()).filter(s=>/^\d{1,2}:\d{2}$/.test(s));
+  if(campo==='horarios') cfg.meds[i].horarios=val.split(',').map(s=>s.trim()).filter(s=>{ const m=s.match(/^(\d{1,2}):(\d{2})$/); return m && +m[1]<=23 && +m[2]<=59; });
   else cfg.meds[i][campo]=val;
   guardarCfg(); renderDosis();
 }
@@ -393,7 +395,7 @@ function avisoDeshacer(msg){
   const b=document.getElementById('banner');
   b.className='banner'; b.classList.remove('oculto');
   b.innerHTML=`<span>${esc(msg)}</span><button onclick="deshacerBorrado()">Deshacer</button>`;
-  setTimeout(()=>{ if(ultimoBorrado){ b.classList.add('oculto'); ultimoBorrado=null; } },6000);
+  setTimeout(()=>{ if(ultimoBorrado){ b.classList.add('oculto'); ultimoBorrado=null; } },12000);
 }
 
 /* ---------- recordatorios (solo con app abierta) ---------- */
@@ -440,23 +442,40 @@ function initVoz(){
   const mic=document.getElementById('mic'), label=document.getElementById('micLabel');
   const Recog=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(!Recog){ mic.onclick=()=>{ label.textContent='Este navegador no oye. Usa los botones 👇'; }; return; }
-  const rec=new Recog(); rec.lang='es-CL'; rec.continuous=false; rec.interimResults=true; rec.maxAlternatives=1;
-  let grabando=false, finalTxt='';
-  rec.onresult=e=>{ let interim='', fin='';
-    for(let i=e.resultIndex;i<e.results.length;i++){ const tr=e.results[i][0].transcript; if(e.results[i].isFinal) fin+=tr; else interim+=tr; }
+  const rec=new Recog(); rec.lang='es-CL'; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
+  let grabando=false, finalTxt='', timer=null;
+  const PAUSA_MS=5000; // tolera pausas largas dentro de la frase (voz hipofónica)
+  const rearmar=()=>{ clearTimeout(timer); timer=setTimeout(()=>{ try{ rec.stop(); }catch(e){} }, PAUSA_MS); };
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){
+      const r=e.results[i];
+      if(r.isFinal) finalTxt+=' '+r[0].transcript; else interim+=r[0].transcript;
+    }
     if(interim) label.textContent='… '+interim;
-    if(fin) finalTxt=fin;
+    rearmar(); // cada vez que habla, reinicia el reloj de pausa
   };
   rec.onerror=ev=>{
+    clearTimeout(timer);
     if(ev.error==='not-allowed'||ev.error==='service-not-allowed') label.textContent='Activa el permiso de micrófono, o usa los botones 👇';
+    else if(ev.error==='network') label.textContent='La voz necesita internet. Sin conexión, usa los botones 👇';
     else if(ev.error==='no-speech') label.textContent='No te escuché. Toca otra vez o usa los botones 👇';
-    else label.textContent='No pude oír. Usa los botones 👇';
+    else label.textContent='No pude oír bien. Usa los botones 👇';
   };
-  rec.onend=()=>{ grabando=false; mic.classList.remove('grabando'); mic.setAttribute('aria-pressed','false');
-    if(finalTxt){ label.textContent='"'+finalTxt+'"'; interpretar(finalTxt); finalTxt=''; } };
-  mic.onclick=()=>{ if(grabando){ rec.stop(); return; }
-    try{ finalTxt=''; rec.start(); grabando=true; mic.classList.add('grabando'); mic.setAttribute('aria-pressed','true');
-      label.textContent='Escuchando… habla con calma'; }catch(e){} };
+  rec.onend=()=>{ clearTimeout(timer); grabando=false; mic.classList.remove('grabando'); mic.setAttribute('aria-pressed','false');
+    const txt=finalTxt.trim();
+    if(txt){ label.textContent='"'+txt+'"'; interpretar(txt); }
+    else if(label.textContent.startsWith('…')||label.textContent.startsWith('Escuchando')) label.textContent=MIC_HINT;
+    finalTxt='';
+  };
+  mic.onclick=()=>{
+    if(grabando){ try{ rec.stop(); }catch(e){} return; }
+    finalTxt='';
+    try{ rec.start(); grabando=true; mic.classList.add('grabando'); mic.setAttribute('aria-pressed','true');
+      label.textContent='Escuchando… habla con calma (toca otra vez al terminar)'; rearmar(); }
+    catch(e){ grabando=false; mic.classList.remove('grabando');
+      label.textContent='No pude iniciar el micrófono. Toca otra vez o usa los botones 👇'; }
+  };
 }
 
 /* ===========================================================================
@@ -490,7 +509,11 @@ function init(){
   const dl=document.getElementById('presetMeds');
   if(dl) dl.innerHTML=PRESET_MEDS.map(m=>`<option value="${esc(m)}">`).join('');
   aplicarConfig(); initVoz(); render();
+  // pedir almacenamiento persistente (reduce riesgo de que el navegador borre los datos)
+  if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(()=>{});
   setInterval(()=>{ renderDosis(); chequearRecordatorios(); }, 30000);
-  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+  // al volver a la app, revisar tomas/recordatorios (el teléfono pudo dormir)
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden){ renderDosis(); chequearRecordatorios(); } });
+  if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').then(r=>{ if(r&&r.update) r.update(); }).catch(()=>{});
 }
 document.addEventListener('DOMContentLoaded', init);
