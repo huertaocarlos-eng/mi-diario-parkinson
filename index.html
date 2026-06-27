@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#1f7a6d">
+<meta name="theme-color" content="#070b12">
 <meta name="description" content="Diario por voz para Parkinson: registra tus tomas y síntomas, y genera el reporte para tu neurólogo.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/favicon-32.png" sizes="32x32">
@@ -20,24 +20,36 @@
 </header>
 
 <main>
-  <div id="banner" class="banner oculto"></div>
+  <div id="banner" class="banner oculto" role="status" aria-live="polite"></div>
 
   <!-- ============ HOY ============ -->
   <section id="vista-hoy">
     <div id="cardDosis" class="card dosis oculto"></div>
 
     <div class="mic-wrap">
-      <button class="mic" id="mic" aria-label="Hablar para anotar">🎤</button>
-      <div class="mic-label" id="micLabel">Toca y habla</div>
+      <button class="mic" id="mic" aria-label="Hablar para anotar" aria-pressed="false">🎤</button>
+      <div class="mic-label" id="micLabel" role="status" aria-live="polite">Toca y habla</div>
     </div>
 
     <div class="grid">
-      <button class="qbtn med" onclick="registrar('medicamento','Tomé medicamento','💊')"><span class="emo">💊</span>Tomé remedio</button>
+      <button class="qbtn med" onclick="registrarToma()"><span class="emo">💊</span>Tomé remedio</button>
       <button class="qbtn on"  onclick="registrar('on','Me siento ON (bien)','🟢')"><span class="emo">🟢</span>Estoy ON</button>
       <button class="qbtn off" onclick="registrar('off','Estoy en OFF (mal)','🟠')"><span class="emo">🟠</span>Estoy OFF</button>
       <button class="qbtn sin" onclick="registrar('sintoma','Temblor','〰️')"><span class="emo">〰️</span>Temblor</button>
-      <button class="qbtn sin" onclick="registrar('sintoma','Bloqueo / freezing','🧊')"><span class="emo">🧊</span>Bloqueo</button>
-      <button class="qbtn ani" onclick="registrar('animo','Ánimo bajo','🌧️')"><span class="emo">🌧️</span>Ánimo</button>
+      <button class="qbtn sin" onclick="registrar('sintoma','Se me pegan los pies (freezing)','🧊')"><span class="emo">🧊</span>Bloqueo al caminar</button>
+      <button class="qbtn ani" onclick="registrar('animo','Ánimo bajo / ansiedad','🌧️')"><span class="emo">🌧️</span>Ánimo</button>
+    </div>
+
+    <button class="btn-grande sec mas-btn" onclick="toggleMasSintomas()">＋ Más síntomas</button>
+    <div class="grid oculto" id="masSintomas">
+      <button class="qbtn off" onclick="registrar('sintoma','Caída','⚠️')"><span class="emo">⚠️</span>Caída</button>
+      <button class="qbtn off" onclick="registrar('sintoma','Mareo al pararme','💫')"><span class="emo">💫</span>Mareo</button>
+      <button class="qbtn sin" onclick="registrar('sintoma','Vi/oí algo que no estaba','👁️')"><span class="emo">👁️</span>Vi/oí algo</button>
+      <button class="qbtn sin" onclick="registrar('sintoma','Movimientos involuntarios (estando ON)','🌀')"><span class="emo">🌀</span>Mov. involuntario</button>
+      <button class="qbtn sin" onclick="registrar('sintoma','Calambre/postura forzada (estando OFF)','🦶')"><span class="emo">🦶</span>Calambre</button>
+      <button class="qbtn sin" onclick="registrar('sintoma','Estreñimiento','🚽')"><span class="emo">🚽</span>Estreñimiento</button>
+      <button class="qbtn sin" onclick="registrar('sintoma','Dolor','🤕')"><span class="emo">🤕</span>Dolor</button>
+      <button class="qbtn sue" onclick="registrar('sueno','Dormí mal','😴')"><span class="emo">😴</span>Dormí mal</button>
     </div>
 
     <div class="card">
@@ -46,7 +58,7 @@
       <div class="franja-leyenda">
         <span><i style="background:var(--on)"></i>ON (bien)</span>
         <span><i style="background:var(--off)"></i>OFF (mal)</span>
-        <span><i style="background:#e4ebe9"></i>sin dato</span>
+        <span><i style="background:#2a3a52"></i>sin dato</span>
       </div>
     </div>
 
@@ -90,8 +102,11 @@
     <div class="card">
       <h3>Medicamentos y horarios</h3>
       <div id="medsEditor"></div>
+      <datalist id="presetMeds"></datalist>
       <button class="btn-grande sec" onclick="agregarMed()">＋ Agregar medicamento</button>
-      <p class="aviso">Escribe los horarios separados por coma. Ej: 08:00, 12:00, 16:00, 20:00</p>
+      <p class="aviso">Horarios separados por coma. Ej: 07:00, 10:00, 13:00, 16:00, 19:00<br>
+        ⏰ Los recordatorios solo suenan con la app abierta.</p>
+      <p class="aviso nota-seg">⚠️ Nunca suspendas ni cambies dosis sin tu neurólogo; saltarte la Levodopa puede ser peligroso. Los agonistas (ej. Pramipexol/Biopsol) pueden causar problemas de control de impulsos. Rasagilina junto a antidepresivos: consúltalo con tu médico.</p>
     </div>
 
     <div class="card">
