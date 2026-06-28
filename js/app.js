@@ -31,7 +31,7 @@ const CFG_DEFAULT = {
   dormirHoras: 2,                          // dormir = ultima toma + 2h
   ejercicioDias: [1, 3, 5, 0],             // L, X, V, D (0=dom..6=sab) = 4 dias
   ejercicioOffsetMin: 120,                 // ejercicio = despertar + 2h
-  emergencia: { numero:'+56931290193', mensaje:'Venga mamá, la necesito' },
+  emergencia: { numero:'+56931290193', mensaje:'Venga mamá, la necesito', canal:'whatsapp' },
   vozLectura:true, textoGrande:false, altoContraste:false, recordatorios:true
 };
 
@@ -345,6 +345,7 @@ function renderAjustes(){
   const eh=document.getElementById('inpEjeHoras');   if(eh) eh.value=(cfg.ejercicioOffsetMin/60);
   const sn=document.getElementById('inpSosNum'); if(sn) sn.value=(cfg.emergencia&&cfg.emergencia.numero)||'';
   const sm=document.getElementById('inpSosMsg'); if(sm) sm.value=(cfg.emergencia&&cfg.emergencia.mensaje)||'';
+  const sc=document.getElementById('selCanal'); if(sc) sc.value=(cfg.emergencia&&cfg.emergencia.canal)||'whatsapp';
   bindToggle('tgVoz','vozLectura'); bindToggle('tgTexto','textoGrande');
   bindToggle('tgContraste','altoContraste'); bindToggle('tgRecord','recordatorios');
 }
@@ -576,20 +577,30 @@ window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); promptIn
 function instalarApp(){ if(!promptInstalar){ aviso('Para instalar: menú del navegador → "Agregar a pantalla de inicio".'); return; }
   promptInstalar.prompt(); promptInstalar=null; }
 
-/* ---------- botón de emergencia ---------- */
+/* ---------- botón de emergencia ----------
+   1 toque = enviar mensaje (WhatsApp/SMS).  3 toques seguidos = llamar. */
 function vibrar(patron){ try{ if(navigator.vibrate) navigator.vibrate(patron || [120,60,120,60,240]); }catch(e){} }
 function sosNum(){ return (cfg.emergencia && cfg.emergencia.numero) || ''; }
 function sosTxt(){ return (cfg.emergencia && cfg.emergencia.mensaje) || 'Necesito ayuda'; }
-function sosAbrir(){
-  vibrar([80,40,80]);   // confirma que el botón respondió
-  const m=document.getElementById('sosMsg');
-  if(m) m.textContent='Para: '+sosNum()+' — “'+sosTxt()+'”';
-  document.getElementById('sosModal').classList.remove('oculto');
+function sosCanal(){ return (cfg.emergencia && cfg.emergencia.canal) || 'whatsapp'; }
+let sosTaps=0, sosTimer=null;
+function sosTap(){
+  sosTaps++; vibrar([60]);
+  const h=document.getElementById('sosHint');
+  if(h) h.textContent = sosTaps>=3 ? 'Llamando…' : (sosTaps===2 ? 'otra vez = llamar' : 'enviando mensaje…');
+  clearTimeout(sosTimer);
+  sosTimer=setTimeout(()=>{
+    const n=sosTaps; sosTaps=0; if(h) h.textContent='';
+    if(n>=3) sosLlamar(); else sosEnviar();
+  }, 750);
 }
-function sosCerrar(){ document.getElementById('sosModal').classList.add('oculto'); }
-function sosWhatsApp(){ vibrar(); registrar('emergencia','SOS enviado por WhatsApp','🆘'); const n=sosNum().replace(/[^0-9]/g,''); window.open('https://wa.me/'+n+'?text='+encodeURIComponent(sosTxt()),'_blank'); sosCerrar(); }
-function sosSMS(){ vibrar(); registrar('emergencia','SOS enviado por SMS','🆘'); window.location.href='sms:'+sosNum()+'?body='+encodeURIComponent(sosTxt()); sosCerrar(); }
-function sosLlamar(){ vibrar(); registrar('emergencia','SOS llamada','🆘'); window.location.href='tel:'+sosNum(); sosCerrar(); }
+function sosEnviar(){
+  vibrar([130,60,130]);
+  registrar('emergencia','SOS: mensaje a '+sosNum(),'🆘');
+  if(sosCanal()==='sms') window.location.href='sms:'+sosNum()+'?body='+encodeURIComponent(sosTxt());
+  else { const num=sosNum().replace(/[^0-9]/g,''); window.location.href='https://wa.me/'+num+'?text='+encodeURIComponent(sosTxt()); }
+}
+function sosLlamar(){ vibrar([220,80,220]); registrar('emergencia','SOS: llamada','🆘'); window.location.href='tel:'+sosNum(); }
 function setSos(campo,val){ cfg.emergencia=cfg.emergencia||{}; cfg.emergencia[campo]=val.trim(); guardarCfg(); }
 
 /* ---------- notificaciones push (servidor) ---------- */
