@@ -190,20 +190,74 @@ function renderFranja(){
   cont.innerHTML=html||'<span class="nd" style="width:100%"></span>';
 }
 
-function renderRutina(){
-  const cont=document.getElementById('rutina');
-  const hoy=new Date().toDateString();
-  const hechos=(cargar(K_EJE,{})[hoy])||[];
-  cont.innerHTML=RUTINA.map((e,i)=>`
-    <div class="check ${hechos.includes(i)?'hecho':''}" role="checkbox" tabindex="0"
-         aria-checked="${hechos.includes(i)}" onclick="toggleEjercicio(${i})"
-         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleEjercicio(${i})}">
-      <div class="box">${hechos.includes(i)?'✓':''}</div><div class="lbl">${esc(e)}</div></div>`).join('');
+/* ----- Plan del día: cuestionario matinal -> rutina personalizada ----- */
+function renderRutina(){   // tarjeta "Plan del día"
+  const cont=document.getElementById('rutina'); if(!cont) return;
+  const d=getDia();
+  if(d.despertarTs==null){ cont.innerHTML='<div class="vacio">Toca “☀️ Ya desperté” para empezar tu día.</div>'; return; }
+  const ck=d.checkin||{};
+  if(!ck.hecho){
+    cont.innerHTML='<p style="color:var(--sub);margin:0 0 10px">Cuéntame cómo amaneciste y te armo la rutina de hoy.</p>'+
+      '<button class="btn-grande" onclick="abrirCuestionario()">📋 Armar mi plan de hoy</button>';
+    return;
+  }
+  let html='<p style="color:var(--accent);margin:0 0 10px">'+esc(ck.intro||'Tu rutina de hoy')+'</p>';
+  html+=(ck.rutina||[]).map((e,i)=>`
+    <div class="check ${(ck.hechos||[]).includes(i)?'hecho':''}" role="checkbox" tabindex="0"
+         aria-checked="${(ck.hechos||[]).includes(i)}" onclick="toggleRutina(${i})"
+         onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();toggleRutina(${i})}">
+      <div class="box">${(ck.hechos||[]).includes(i)?'✓':''}</div><div class="lbl">${esc(e)}</div></div>`).join('');
+  html+='<button class="btn-grande sec" style="margin-top:10px" onclick="abrirCuestionario()">Rehacer mi plan</button>';
+  cont.innerHTML=html;
 }
-function toggleEjercicio(i){
-  const hoy=new Date().toDateString(), estado=cargar(K_EJE,{}), arr=new Set(estado[hoy]||[]);
-  if(arr.has(i)) arr.delete(i); else { arr.add(i); registrar('ejercicio','Ejercicio: '+RUTINA[i],'🤸'); }
-  estado[hoy]=[...arr]; guardarSeguro(K_EJE, estado); renderRutina();
+function toggleRutina(i){
+  const d=getDia(); if(!d.checkin) return; d.checkin.hechos=d.checkin.hechos||[];
+  const k=d.checkin.hechos.indexOf(i);
+  if(k>=0) d.checkin.hechos.splice(k,1); else { d.checkin.hechos.push(i); registrar('ejercicio','Hice: '+d.checkin.rutina[i],'🤸'); }
+  setDia(d); renderRutina();
+}
+/* genera la rutina según cómo amaneció (sin que el usuario teclee nada) */
+function generarRutina(r){
+  const lado = r.lado==='derecho'?'derecho' : r.lado==='izquierdo'?'izquierdo' : null;
+  const items=[];
+  items.push('🗣️ Voz: cuenta hasta 10 hablando FUERTE');
+  items.push('🚶 Camina con pasos GRANDES, 5 min');
+  if(r.cuerpo==='rigido'){ items.push('🧘 Estira cuello y hombros, suave'); if(lado) items.push('💪 Estira bien el lado '+lado); }
+  if(r.equilibrio==='inseguro' || r.equilibrio==='freezing'){
+    items.push('🪑 Equilibrio apoyado en una silla, 2 min');
+    items.push('👣 Al caminar marca el paso: 1-2, 1-2');
+  } else if(r.energia==='bien'){ items.push('🦶 Párate en un pie (apoyado), 30 s por lado'); }
+  if(lado) items.push('🤚 Brazo '+lado+': movimientos amplios, 10 veces');
+  if(r.energia==='cansado'){ if(items.length>4) items.length=4; items.push('🌱 Con calma: descansa entre cada uno'); }
+  return items;
+}
+function introPlan(r){
+  if(r.equilibrio==='inseguro' || r.equilibrio==='freezing') return 'Hoy con cuidado al caminar. Vamos firme y sin apuro 👣';
+  if(r.energia==='cansado' || r.cuerpo==='rigido') return 'Hoy vamos con calma. Rutina corta y suave 🌱';
+  if(r.cuerpo==='suelto' && r.energia==='bien') return '¡Buen día para moverte! Rutina completa 💪';
+  return 'Aquí está tu rutina de hoy, a tu ritmo ✨';
+}
+let cuest={};
+function abrirCuestionario(){
+  cuest={};
+  document.querySelectorAll('#cuestModal .q-opts button').forEach(b=>b.classList.remove('sel'));
+  const ok=document.getElementById('cuestOk'); if(ok) ok.disabled=true;
+  document.getElementById('cuestModal').classList.remove('oculto');
+}
+function cerrarCuestionario(){ document.getElementById('cuestModal').classList.add('oculto'); }
+function responder(cat,val,btn){
+  cuest[cat]=val;
+  btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('sel'));
+  btn.classList.add('sel');
+  if(['cuerpo','energia','lado','equilibrio'].every(k=>cuest[k])) document.getElementById('cuestOk').disabled=false;
+}
+function finalizarCuestionario(){
+  const d=getDia(); if(d.despertarTs==null){ cerrarCuestionario(); return; }
+  const rutina=generarRutina(cuest), intro=introPlan(cuest);
+  d.checkin={ hecho:true, resp:Object.assign({},cuest), rutina, hechos:[], intro };
+  setDia(d); cerrarCuestionario(); render();
+  registrar('nota','Plan del día listo: '+intro,'📋'); hablar(intro);
+  aviso('Tu rutina de hoy está lista ✨','exito');
 }
 function toggleMasSintomas(){ document.getElementById('masSintomas').classList.toggle('oculto'); }
 function renderTimelineHoy(){ pintarLista(document.getElementById('timelineHoy'), registros.filter(r=>esHoy(r.ts)), false); }
@@ -485,8 +539,9 @@ function chequearRecordatorios(){
         new Notification('Mi Diario Parkinson',{ body:msg, icon:'icons/icon-192.png' }); }catch(e){}
     }
   };
+  if(!(d.checkin&&d.checkin.hecho)) disparar(d.despertarTs+30*60000,'plan|'+d.fecha,'Arma tu plan del día: 4 preguntas rápidas 📋');
   (cfg.ciclo||[]).forEach((toma,i)=>{ if(!d.tomadas[i]) disparar(tomaTs(i),'toma'+i+'|'+d.fecha,'Hora de tu toma: '+nombresMeds(toma.meds)); });
-  if((cfg.ejercicioDias||[]).includes(new Date().getDay())) disparar(ejercicioTs(),'eje|'+d.fecha,'Hora de tus ejercicios 🤸');
+  if((cfg.ejercicioDias||[]).includes(new Date().getDay())) disparar(ejercicioTs(),'eje|'+d.fecha,'Hora de tu rutina de hoy 🤸');
   disparar(dormirTs(),'dormir|'+d.fecha,'Es hora de ir a dormir 🌙');
 }
 
@@ -630,8 +685,9 @@ async function pushInit(pedirPermiso){
 function construirAgenda(){
   const d=getDia(); if(d.despertarTs==null) return [];
   const ev=[];
+  ev.push({ ts:d.despertarTs+30*60000, title:'📋 Tu plan del día', body:'Responde 4 preguntas y te armo tu rutina' });
   (cfg.ciclo||[]).forEach((toma,i)=>ev.push({ ts:tomaTs(i), title:'💊 Hora de tu toma', body:nombresMeds(toma.meds) }));
-  if((cfg.ejercicioDias||[]).includes(new Date().getDay())) ev.push({ ts:ejercicioTs(), title:'🤸 Ejercicios', body:'Es la hora de tus ejercicios' });
+  if((cfg.ejercicioDias||[]).includes(new Date().getDay())) ev.push({ ts:ejercicioTs(), title:'🤸 Ejercicios', body:'Es la hora de tu rutina de hoy' });
   ev.push({ ts:dormirTs(), title:'🌙 A dormir', body:'Es hora de ir a dormir' });
   return ev.filter(e=>e.ts!=null);
 }

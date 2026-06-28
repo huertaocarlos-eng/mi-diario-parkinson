@@ -186,6 +186,16 @@ select{ padding:12px; border:1.5px solid var(--line2); border-radius:12px; font-
 .sos-card{ background:var(--card); border:1px solid var(--line); border-radius:18px; padding:18px; width:100%; max-width:480px; display:flex; flex-direction:column; gap:10px; box-shadow:var(--shadow) }
 .sos-card h3{ color:#ff6b6b; font-size:19px; text-align:center }
 .sos-msg{ color:var(--sub); font-size:14px; text-align:center; margin-bottom:4px }
+/* cuestionario "plan del día" */
+.modal-cosmos{ position:fixed; inset:0; z-index:40; background:rgba(0,0,0,.66); display:flex; align-items:flex-end; justify-content:center; padding:14px; overflow:auto }
+.modal-card{ background:var(--card); border:1px solid var(--line2); border-radius:18px; padding:18px; width:100%; max-width:480px; box-shadow:var(--shadow) }
+.modal-card h3{ color:var(--accent); font-size:18px; text-align:center }
+.modal-sub{ color:var(--sub); font-size:13px; text-align:center; margin:4px 0 14px }
+.q{ margin-bottom:14px }
+.q-lbl{ font-weight:600; margin-bottom:8px }
+.q-opts{ display:flex; gap:8px }
+.q-opts button{ flex:1; padding:12px 6px; min-height:52px; border:1.5px solid var(--line2); background:var(--card2); color:var(--ink); border-radius:12px; font-size:14px; font-weight:600; cursor:pointer }
+.q-opts button.sel{ border-color:var(--accent); color:var(--accent); background:rgba(79,214,230,.10) }
 .toggle{ display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-bottom:1px solid var(--line) }
 .switch{ position:relative; width:54px; height:30px; flex-shrink:0 }
 .switch input{ opacity:0; width:0; height:0 }

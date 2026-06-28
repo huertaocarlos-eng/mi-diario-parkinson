@@ -63,7 +63,7 @@
     </div>
 
     <div class="card">
-      <h3>Rutina de ejercicio de hoy</h3>
+      <h3>📋 Plan del día</h3>
       <div id="rutina"></div>
     </div>
 
@@ -180,6 +180,31 @@
 <div id="sosWrap">
   <div id="sosHint" class="sos-hint" role="status" aria-live="polite"></div>
   <button id="sosBtn" class="sos-btn" onclick="sosTap()" aria-label="Emergencia. Un toque envía mensaje, tres toques llaman.">SOS</button>
+</div>
+
+<div id="cuestModal" class="modal-cosmos oculto" role="dialog" aria-modal="true" aria-label="Plan del día">
+  <div class="modal-card">
+    <h3>📋 ¿Cómo amaneciste hoy?</h3>
+    <p class="modal-sub">4 preguntas rápidas. Con eso te armo tu rutina.</p>
+    <div class="q"><div class="q-lbl">1. Tu cuerpo</div><div class="q-opts">
+      <button type="button" onclick="responder('cuerpo','suelto',this)">Suelto</button>
+      <button type="button" onclick="responder('cuerpo','normal',this)">Normal</button>
+      <button type="button" onclick="responder('cuerpo','rigido',this)">Rígido</button></div></div>
+    <div class="q"><div class="q-lbl">2. Tu energía</div><div class="q-opts">
+      <button type="button" onclick="responder('energia','bien',this)">Bien</button>
+      <button type="button" onclick="responder('energia','media',this)">Más o menos</button>
+      <button type="button" onclick="responder('energia','cansado',this)">Cansado</button></div></div>
+    <div class="q"><div class="q-lbl">3. ¿Qué lado te molesta más?</div><div class="q-opts">
+      <button type="button" onclick="responder('lado','derecho',this)">Derecho</button>
+      <button type="button" onclick="responder('lado','izquierdo',this)">Izquierdo</button>
+      <button type="button" onclick="responder('lado','ninguno',this)">Ninguno</button></div></div>
+    <div class="q"><div class="q-lbl">4. Al caminar te sientes</div><div class="q-opts">
+      <button type="button" onclick="responder('equilibrio','firme',this)">Firme</button>
+      <button type="button" onclick="responder('equilibrio','inseguro',this)">Inseguro</button>
+      <button type="button" onclick="responder('equilibrio','freezing',this)">Me trabo</button></div></div>
+    <button class="btn-grande" id="cuestOk" onclick="finalizarCuestionario()" disabled>Ver mi rutina</button>
+    <button class="btn-grande sec" onclick="cerrarCuestionario()">Ahora no</button>
+  </div>
 </div>
 
 <div id="printRoot"></div>
