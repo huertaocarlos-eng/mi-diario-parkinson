@@ -448,9 +448,12 @@ function importarRespaldo(input){
   fr.readAsText(f);
 }
 function borrarTodo(){
-  if(!confirm('¿Borrar TODOS tus registros? Esto no se puede deshacer.')) return;
-  if(!confirm('Última confirmación: se borrará todo tu historial.')) return;
-  registros=[]; localStorage.removeItem(K_EJE); guardarReg(); render(); aviso('Historial borrado.');
+  if(!confirm('¿Empezar de cero? Se borrará TODO: historial, configuración y el ciclo volverá al de fábrica.')) return;
+  if(!confirm('Última confirmación: se borra todo y no se puede deshacer.')) return;
+  [K_REG, K_CFG, K_EJE, K_NOT, K_DIA].forEach(k=>{ try{ localStorage.removeItem(k); }catch(e){} });
+  registros=[]; cfg=JSON.parse(JSON.stringify(CFG_DEFAULT)); notificados=new Set();
+  aplicarConfig(); render(); renderAjustes();
+  aviso('Todo borrado. Empezaste de cero. ✨','exito');
 }
 
 /* ---------- avisos ---------- */
