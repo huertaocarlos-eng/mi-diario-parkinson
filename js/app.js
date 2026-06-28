@@ -574,17 +574,19 @@ function instalarApp(){ if(!promptInstalar){ aviso('Para instalar: menú del nav
   promptInstalar.prompt(); promptInstalar=null; }
 
 /* ---------- botón de emergencia ---------- */
+function vibrar(patron){ try{ if(navigator.vibrate) navigator.vibrate(patron || [120,60,120,60,240]); }catch(e){} }
 function sosNum(){ return (cfg.emergencia && cfg.emergencia.numero) || ''; }
 function sosTxt(){ return (cfg.emergencia && cfg.emergencia.mensaje) || 'Necesito ayuda'; }
 function sosAbrir(){
+  vibrar([80,40,80]);   // confirma que el botón respondió
   const m=document.getElementById('sosMsg');
   if(m) m.textContent='Para: '+sosNum()+' — “'+sosTxt()+'”';
   document.getElementById('sosModal').classList.remove('oculto');
 }
 function sosCerrar(){ document.getElementById('sosModal').classList.add('oculto'); }
-function sosWhatsApp(){ registrar('emergencia','SOS enviado por WhatsApp','🆘'); const n=sosNum().replace(/[^0-9]/g,''); window.open('https://wa.me/'+n+'?text='+encodeURIComponent(sosTxt()),'_blank'); sosCerrar(); }
-function sosSMS(){ registrar('emergencia','SOS enviado por SMS','🆘'); window.location.href='sms:'+sosNum()+'?body='+encodeURIComponent(sosTxt()); sosCerrar(); }
-function sosLlamar(){ registrar('emergencia','SOS llamada','🆘'); window.location.href='tel:'+sosNum(); sosCerrar(); }
+function sosWhatsApp(){ vibrar(); registrar('emergencia','SOS enviado por WhatsApp','🆘'); const n=sosNum().replace(/[^0-9]/g,''); window.open('https://wa.me/'+n+'?text='+encodeURIComponent(sosTxt()),'_blank'); sosCerrar(); }
+function sosSMS(){ vibrar(); registrar('emergencia','SOS enviado por SMS','🆘'); window.location.href='sms:'+sosNum()+'?body='+encodeURIComponent(sosTxt()); sosCerrar(); }
+function sosLlamar(){ vibrar(); registrar('emergencia','SOS llamada','🆘'); window.location.href='tel:'+sosNum(); sosCerrar(); }
 function setSos(campo,val){ cfg.emergencia=cfg.emergencia||{}; cfg.emergencia[campo]=val.trim(); guardarCfg(); }
 
 /* ---------- notificaciones push (servidor) ---------- */
