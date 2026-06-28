@@ -231,6 +231,26 @@ function generarRutina(r){
   if(r.energia==='cansado'){ if(items.length>4) items.length=4; items.push('🌱 Con calma: descansa entre cada uno'); }
   return items;
 }
+/* ----- recordatorio de baño (día por medio, 15:30 y 19:00) ----- */
+function esDiaBano(){ return Math.floor(Date.now()/DIA) % 2 === 0; }
+function hoyAHora(h,m){ const d=new Date(); d.setHours(h,m,0,0); return d.getTime(); }
+function renderBano(){
+  const cont=document.getElementById('cardBano'); if(!cont) return;
+  const d=getDia();
+  if(d.despertarTs==null || !esDiaBano()){ cont.classList.add('oculto'); return; }
+  cont.classList.remove('oculto');
+  if(d.banoHecho){
+    cont.innerHTML='<h3>🚿 Baño</h3><p style="color:var(--on);margin:0">✅ Listo por hoy. No te molesto más.</p>';
+  }else{
+    cont.innerHTML='<h3>🚿 Baño de hoy</h3><p style="color:var(--sub);margin:0 0 10px">Te recuerdo a las 15:30 y 19:00. Cuando lo hagas, marca y no insisto.</p>'+
+      '<button class="btn-grande" onclick="marcarBano()">✅ Ya me bañé</button>';
+  }
+}
+function marcarBano(){
+  const d=getDia(); if(d.despertarTs==null) return;
+  d.banoHecho=true; setDia(d); registrar('nota','Me bañé 🚿','🚿'); renderBano(); enviarAgenda();
+  aviso('Anotado. No te lo recuerdo más hoy ✨','exito');
+}
 function introPlan(r){
   if(r.equilibrio==='inseguro' || r.equilibrio==='freezing') return 'Hoy con cuidado al caminar. Vamos firme y sin apuro 👣';
   if(r.energia==='cansado' || r.cuerpo==='rigido') return 'Hoy vamos con calma. Rutina corta y suave 🌱';
@@ -543,6 +563,10 @@ function chequearRecordatorios(){
   (cfg.ciclo||[]).forEach((toma,i)=>{ if(!d.tomadas[i]) disparar(tomaTs(i),'toma'+i+'|'+d.fecha,'Hora de tu toma: '+nombresMeds(toma.meds)); });
   if((cfg.ejercicioDias||[]).includes(new Date().getDay())) disparar(ejercicioTs(),'eje|'+d.fecha,'Hora de tu rutina de hoy 🤸');
   disparar(dormirTs(),'dormir|'+d.fecha,'Es hora de ir a dormir 🌙');
+  if(esDiaBano() && !d.banoHecho){
+    disparar(hoyAHora(15,30),'bano1|'+d.fecha,'Hora de bañarse 🚿');
+    disparar(hoyAHora(19,0),'bano2|'+d.fecha,'¿Ya te bañaste hoy? 🚿');
+  }
 }
 
 /* ===========================================================================
@@ -624,7 +648,7 @@ function cambiarVista(v){
   const sec=document.getElementById('vista-'+v); sec.setAttribute('tabindex','-1'); sec.focus();
   window.scrollTo(0,0);
 }
-function render(){ renderDosis(); renderFranja(); renderRutina(); renderTimelineHoy(); if(vistaActual==='reporte') renderReporte(); }
+function render(){ renderDosis(); renderFranja(); renderRutina(); renderBano(); renderTimelineHoy(); if(vistaActual==='reporte') renderReporte(); }
 
 /* ---------- instalar PWA ---------- */
 window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); promptInstalar=e;
@@ -689,6 +713,10 @@ function construirAgenda(){
   (cfg.ciclo||[]).forEach((toma,i)=>ev.push({ ts:tomaTs(i), title:'💊 Hora de tu toma', body:nombresMeds(toma.meds) }));
   if((cfg.ejercicioDias||[]).includes(new Date().getDay())) ev.push({ ts:ejercicioTs(), title:'🤸 Ejercicios', body:'Es la hora de tu rutina de hoy' });
   ev.push({ ts:dormirTs(), title:'🌙 A dormir', body:'Es hora de ir a dormir' });
+  if(esDiaBano() && !d.banoHecho){
+    ev.push({ ts:hoyAHora(15,30), title:'🚿 Hora de bañarse', body:'Cuando te bañes, márcalo en la app' });
+    ev.push({ ts:hoyAHora(19,0),  title:'🚿 Recordatorio: bañarse', body:'¿Ya te bañaste hoy?' });
+  }
   return ev.filter(e=>e.ts!=null);
 }
 async function enviarAgenda(){
