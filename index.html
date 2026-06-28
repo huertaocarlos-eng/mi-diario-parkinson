@@ -129,6 +129,15 @@
     </div>
 
     <div class="card">
+      <h3>Botón de emergencia</h3>
+      <div class="campo"><label for="inpSosNum">Número a avisar</label>
+        <input type="text" id="inpSosNum" inputmode="tel" placeholder="+56931290193" onchange="setSos('numero',this.value)"></div>
+      <div class="campo"><label for="inpSosMsg">Mensaje</label>
+        <input type="text" id="inpSosMsg" placeholder="Venga mamá, la necesito" onchange="setSos('mensaje',this.value)"></div>
+      <p class="aviso">El botón rojo 🆘 está siempre visible. Al tocarlo eliges WhatsApp, SMS o llamada, con el mensaje ya escrito.</p>
+    </div>
+
+    <div class="card">
       <h3>Preferencias</h3>
       <div class="toggle"><span>🔊 Leer en voz alta lo que anoto</span>
         <label class="switch"><input type="checkbox" id="tgVoz" onchange="onToggle('tgVoz','vozLectura')"><span class="slider"></span></label></div>
@@ -162,6 +171,18 @@
     </div>
   </section>
 </main>
+
+<button id="sosBtn" class="sos-btn" onclick="sosAbrir()" aria-label="Emergencia: pedir ayuda">SOS</button>
+<div id="sosModal" class="sos-modal oculto" role="dialog" aria-modal="true" aria-label="Pedir ayuda">
+  <div class="sos-card">
+    <h3>🆘 Pedir ayuda</h3>
+    <p id="sosMsg" class="sos-msg"></p>
+    <button class="btn-grande" onclick="sosWhatsApp()">💬 Enviar por WhatsApp</button>
+    <button class="btn-grande" onclick="sosSMS()">✉️ Enviar SMS</button>
+    <button class="btn-grande" onclick="sosLlamar()">📞 Llamar</button>
+    <button class="btn-grande sec" onclick="sosCerrar()">Cancelar</button>
+  </div>
+</div>
 
 <div id="printRoot"></div>
 

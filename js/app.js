@@ -10,7 +10,7 @@ const K_EJE = 'dp_ejercicio_v1';
 const K_NOT = 'dp_notificados_v1';
 const K_DIA = 'dp_dia_v1';   // estado del dia: cuando desperto + que tomas marco
 
-const ICONOS = { medicamento:'💊', on:'🟢', off:'🟠', sintoma:'〰️', animo:'🌧️', sueno:'😴', ejercicio:'🤸', despertar:'☀️', nota:'🗒️' };
+const ICONOS = { medicamento:'💊', on:'🟢', off:'🟠', sintoma:'〰️', animo:'🌧️', sueno:'😴', ejercicio:'🤸', despertar:'☀️', emergencia:'🆘', nota:'🗒️' };
 
 /* Ciclo por defecto, RELATIVO al despertar (cada toma = lista de meds del catalogo).
    Esquema de Carlos: 1) Prolopa+Rasagilina  2) Prolopa  3) Prolopa+Biopsol
@@ -31,6 +31,7 @@ const CFG_DEFAULT = {
   dormirHoras: 2,                          // dormir = ultima toma + 2h
   ejercicioDias: [1, 3, 5, 0],             // L, X, V, D (0=dom..6=sab) = 4 dias
   ejercicioOffsetMin: 120,                 // ejercicio = despertar + 2h
+  emergencia: { numero:'+56931290193', mensaje:'Venga mamá, la necesito' },
   vozLectura:true, textoGrande:false, altoContraste:false, recordatorios:true
 };
 
@@ -342,6 +343,8 @@ function renderAjustes(){
   const iv=document.getElementById('inpIntervalo'); if(iv) iv.value=(cfg.intervaloMin/60);
   const dm=document.getElementById('inpDormir');    if(dm) dm.value=cfg.dormirHoras;
   const eh=document.getElementById('inpEjeHoras');   if(eh) eh.value=(cfg.ejercicioOffsetMin/60);
+  const sn=document.getElementById('inpSosNum'); if(sn) sn.value=(cfg.emergencia&&cfg.emergencia.numero)||'';
+  const sm=document.getElementById('inpSosMsg'); if(sm) sm.value=(cfg.emergencia&&cfg.emergencia.mensaje)||'';
   bindToggle('tgVoz','vozLectura'); bindToggle('tgTexto','textoGrande');
   bindToggle('tgContraste','altoContraste'); bindToggle('tgRecord','recordatorios');
 }
@@ -569,6 +572,20 @@ window.addEventListener('beforeinstallprompt', e=>{ e.preventDefault(); promptIn
   const b=document.getElementById('btnInstalar'); if(b) b.classList.remove('oculto'); });
 function instalarApp(){ if(!promptInstalar){ aviso('Para instalar: menú del navegador → "Agregar a pantalla de inicio".'); return; }
   promptInstalar.prompt(); promptInstalar=null; }
+
+/* ---------- botón de emergencia ---------- */
+function sosNum(){ return (cfg.emergencia && cfg.emergencia.numero) || ''; }
+function sosTxt(){ return (cfg.emergencia && cfg.emergencia.mensaje) || 'Necesito ayuda'; }
+function sosAbrir(){
+  const m=document.getElementById('sosMsg');
+  if(m) m.textContent='Para: '+sosNum()+' — “'+sosTxt()+'”';
+  document.getElementById('sosModal').classList.remove('oculto');
+}
+function sosCerrar(){ document.getElementById('sosModal').classList.add('oculto'); }
+function sosWhatsApp(){ registrar('emergencia','SOS enviado por WhatsApp','🆘'); const n=sosNum().replace(/[^0-9]/g,''); window.open('https://wa.me/'+n+'?text='+encodeURIComponent(sosTxt()),'_blank'); sosCerrar(); }
+function sosSMS(){ registrar('emergencia','SOS enviado por SMS','🆘'); window.location.href='sms:'+sosNum()+'?body='+encodeURIComponent(sosTxt()); sosCerrar(); }
+function sosLlamar(){ registrar('emergencia','SOS llamada','🆘'); window.location.href='tel:'+sosNum(); sosCerrar(); }
+function setSos(campo,val){ cfg.emergencia=cfg.emergencia||{}; cfg.emergencia[campo]=val.trim(); guardarCfg(); }
 
 /* ---------- notificaciones push (servidor) ---------- */
 const API_BASE = '';   // mismo origen: la app la sirve el backend
