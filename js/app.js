@@ -252,7 +252,7 @@ function calcularWearingOff(d){
 function graficoSVG(d, modo){
   const c = modo==='print'
     ? { bar:'#1f7a6d', dot:'#d9763a', txt:'#5b6f6a', line:'#dfe8e5', dotxt:'#fff' }
-    : { bar:'#2ee6c8', dot:'#ff9d42', txt:'#a7bdd9', line:'rgba(120,160,220,.25)', dotxt:'#03211c' };
+    : { bar:'#4fd6e6', dot:'#ff9d57', txt:'#aab6dd', line:'rgba(150,170,235,.25)', dotxt:'#04222a' };
   const n=periodoRep, hoy=new Date(); hoy.setHours(0,0,0,0);
   const dias=[]; for(let i=n-1;i>=0;i--) dias.push(new Date(hoy.getTime()-i*DIA));
   const porDia=dias.map(f=>{ const k=f.toDateString();

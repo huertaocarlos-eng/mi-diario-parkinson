@@ -1,7 +1,7 @@
 /* Service worker — Mi Diario Parkinson
    Estrategia: "red primero" para la app (HTML/JS/CSS) para que las mejoras lleguen
    siempre; "caché primero" para iconos. Funciona offline con la última versión vista. */
-const CACHE = 'diario-pk-v4';
+const CACHE = 'diario-pk-v5';
 const ASSETS = [
   './', './index.html', './css/styles.css', './js/app.js',
   './manifest.webmanifest',
